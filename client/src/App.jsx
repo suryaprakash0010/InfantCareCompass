@@ -11,6 +11,7 @@ import ScrollRestoration from "./components/ScrollRestoration";
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from "./contexts/ThemeContext";
 import MagicCursorTrail from "./components/magiccursortrail.jsx";
+import commnApiEndpoint from "./common/backendAPI.jsx";
 
 function App() {
   const matches = useMatches();
@@ -31,13 +32,30 @@ function App() {
         localStorage.removeItem('token');
         localStorage.removeItem('userData');
       }
+    } else if (token && !userData) {
+      // Try to fetch user info from backend if token exists but userData is missing
+      fetch(commnApiEndpoint.getUserInfo.url, {
+        method: commnApiEndpoint.getUserInfo.method,
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data) {
+            localStorage.setItem('userData', JSON.stringify(data.data));
+            dispatch(setUser(data.data));
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('token');
+        });
     }
   }, [dispatch]);
 
   return (
     <ThemeProvider>
       <div className="w-full min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
-        <MagicCursorTrail />   {/* cursor trail effect */}
+        <MagicCursorTrail />   {/* Custom cursor trail animation effect */}
         <ScrollRestoration />
         {!hideLayout && <Header />}
 

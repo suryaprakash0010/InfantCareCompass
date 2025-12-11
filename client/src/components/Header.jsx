@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../store/slices/userSlice.jsx";
@@ -16,17 +16,23 @@ import {
   LogOut,
   UserCircle,
   TrendingUp,
+  Shield,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import navlogo from "/logo.png";
 import ThemeToggle from "./ThemeToggle";
+import { useTranslation } from "react-i18next";
+import { Globe } from "lucide-react";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isLangOpen, setIsLangOpen] = useState(false);
+  const langMenuRef = useRef(null);
   const { user, isAuthenticated } = useSelector(state => state.user);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { i18n, t } = useTranslation();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -34,11 +40,40 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Close language menu on outside click or ESC key
+  useEffect(() => {
+    if (!isLangOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (langMenuRef.current && !langMenuRef.current.contains(event.target)) {
+        setIsLangOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsLangOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isLangOpen]);
+
+  // Handle user logout by clearing local storage and redirecting
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userData');
     dispatch(logout());
     navigate('/');
+  };
+
+  const changeLanguage = (lng) => {
+    i18n.changeLanguage(lng);
   };
 
   useEffect(() => {
@@ -53,24 +88,24 @@ export default function Header() {
   }, [isMobileMenuOpen]);
 
   const navItems = [
-    { to: "/", label: "Home", icon: <Home className="w-4 h-4" /> },
-    { to: "/about", label: "About", icon: <User className="w-4 h-4" /> },
-    { to: "/blog", label: "Blog", icon: <BookOpen className="w-4 h-4" /> },
-    { to: "/contactus", label: "Contact", icon: <Mail className="w-4 h-4" /> },
-    { to: "/news", label: "News", icon: <Newspaper className="w-4 h-4" /> },
+    { to: "/", label: t("header.navigation.home"), icon: <Home className="w-4 h-4" /> },
+    { to: "/about", label: t("header.navigation.about"), icon: <User className="w-4 h-4" /> },
+    { to: "/blog", label: t("header.navigation.blog"), icon: <BookOpen className="w-4 h-4" /> },
+    { to: "/contactus", label: t("header.navigation.contact"), icon: <Mail className="w-4 h-4" /> },
+    { to: "/news", label: t("header.navigation.news"), icon: <Newspaper className="w-4 h-4" /> },
     {
       to: "/consultation",
-      label: "Consultation",
+      label: t("header.navigation.consultation"),
       icon: <Phone className="w-4 h-4" />,
     },
     {
       to: "/care-co-pilot",
-      label: "Care Co-Pilot",
+      label: t("header.navigation.careCoPilot"),
       icon: <Heart className="w-4 h-4" />,
     },
     {
       to: "/growth-tracker",
-      label: "Growth Tracker",
+      label: t("header.navigation.growthTracker"),
       icon: <TrendingUp className="w-4 h-4" />,
     },
     {
@@ -78,25 +113,32 @@ export default function Header() {
       label: "Contributors",
       icon: <Users className="w-4 h-4" />,
     },
+    // Admin dashboard - only show for admin users
+    ...(user?.role === 'admin' ? [{
+      to: "/admin-dashboard",
+      label: "Admin Dashboard",
+      icon: <Shield className="w-4 h-4" />,
+    }] : []),
   ];
 
   return (
     <>
       {/* HEADER */}
       <div
-        className={`fixed top-0 left-0 h-[80px] flex right-0 z-50 transition-all duration-300 
+        className={`fixed top-0 left-0 h-[80px] flex right-0 z-[9999] transition-all duration-300 
         ${isScrolled ? "shadow-md" : ""} 
         bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700`}
       >
 
         <div className="w-full  flex items-center px-4 py-2">
+          {/* Left: Logo */}
           <div className="flex items-center gap-5 flex-shrink-0">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 ">
 
               <img
                 src={navlogo}
-                alt="Logo"
+                alt="InfantCare Compass logo"
                 className="h-12 w-12 rounded-full shadow-lg"
               />
               <div className="leading-tight">
@@ -109,10 +151,11 @@ export default function Header() {
               </div>
             </Link>
 
-            {/* Desktop Nav */}
+          </div>
 
-            <div className="hidden lg:flex items-center gap-2 mx-auto">
-
+          {/* Center: Desktop Nav (scrollable to avoid overlap) */}
+          <div className="hidden lg:flex flex-1 mx-4 overflow-x-auto whitespace-nowrap items-center">
+            <div className="inline-flex items-center gap-2">
               {navItems.map(({ to, label, icon }) => (
                 <NavLink
                   key={to}
@@ -130,16 +173,44 @@ export default function Header() {
                 </NavLink>
               ))}
             </div>
+          </div>
 
-            {/* Theme Toggle */}
 
-            <div className="hidden lg:flex items-center gap-3 ml-auto">
-
-              <ThemeToggle />
+          {/* Right: Theme/Language + Auth */}
+          <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
+            <ThemeToggle />
+            {/* Language Switcher */}
+            <div className="relative" ref={langMenuRef}>
+              <button onClick={() => setIsLangOpen(!isLangOpen)} aria-expanded={isLangOpen} aria-haspopup="menu" className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-gray-800 rounded-full transition-all duration-300" aria-label="Select language">
+                <Globe className="w-4 h-4" />
+                <span className="uppercase">{i18n.language}</span>
+              </button>
+              {isLangOpen && (
+                <div role="menu" className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[120px] z-[100]">
+                  <button
+                    onClick={() => { changeLanguage('en'); setIsLangOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                      i18n.language === 'en' ? 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-200'
+                    }`}
+                    aria-label="Switch to English language"
+                  >
+                    English
+                  </button>
+                  <button
+                    onClick={() => { changeLanguage('hi'); setIsLangOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                      i18n.language === 'hi' ? 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-200'
+                    }`}
+                    aria-label="Switch to Hindi language"
+                  >
+                    हिंदी
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Auth Buttons */}
-            <div className="hidden lg:flex items-center w-150">
+            <div className="flex items-center gap-2">
               {isAuthenticated && user ? (
                 <>
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-full">
@@ -162,32 +233,32 @@ export default function Header() {
                     to="/signin"
                     className="border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white px-4 py-1.5 text-sm font-medium rounded-full transition whitespace-nowrap"
                   >
-                    Sign In
+                    {t("common.login")}
                   </Link>
                   <Link
                     to="/registration"
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-5 py-1.5 ml-2 text-sm font-semibold rounded-full shadow hover:scale-105 transition-transform whitespace-nowrap"
+                    className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-5 py-1.5 text-sm font-semibold rounded-full shadow hover:scale-105 transition-transform whitespace-nowrap"
                   >
-                    Get Started
+                    {t("common.register")}
                   </Link>
                 </>
               )}
             </div>
+          </div>
 
-            {/* Hamburger */}
-            <div className="lg:hidden">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                aria-label="Toggle mobile menu"
-                className="p-2 rounded-md bg-purple-100 dark:bg-gray-100 hover:bg-purple-200 dark:hover:bg-gray-200"
-              >
-                {isMobileMenuOpen ? (
-                  <X className="w-6 h-6 " />
-                ) : (
-                  <Menu className="w-6 h-6 " />
-                )}
-              </button>
-            </div>
+          {/* Hamburger */}
+          <div className="lg:hidden ml-auto">
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle mobile menu"
+              className="p-2 rounded-md bg-purple-100 dark:bg-gray-100 hover:bg-purple-200 dark:hover:bg-gray-200"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6 " />
+              ) : (
+                <Menu className="w-6 h-6 " />
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -231,9 +302,33 @@ export default function Header() {
                 </NavLink>
               ))}
               
-              {/* Theme Toggle in Mobile Menu */}
-              <div className="flex items-center justify-center p-3 mt-4">
+              {/* Theme Toggle & Language Switcher in Mobile Menu */}
+              <div className="flex items-center justify-center gap-4 p-3 mt-4">
                 <ThemeToggle />
+                
+                {/* Mobile Language Switcher */}
+                <div className="flex bg-gray-100 dark:bg-gray-800 rounded-full p-1">
+                  <button
+                    onClick={() => changeLanguage('en')}
+                    className={`px-3 py-1 text-sm font-medium rounded-full transition-all duration-300 ${
+                      i18n.language === 'en'
+                        ? 'bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 shadow'
+                        : 'text-gray-600 dark:text-gray-300'
+                    }`}
+                  >
+                    EN
+                  </button>
+                  <button
+                    onClick={() => changeLanguage('hi')}
+                    className={`px-3 py-1 text-sm font-medium rounded-full transition-all duration-300 ${
+                      i18n.language === 'hi'
+                        ? 'bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 shadow'
+                        : 'text-gray-600 dark:text-gray-300'
+                    }`}
+                  >
+                    हिंदी
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -261,14 +356,14 @@ export default function Header() {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="w-full text-purple-600 border border-purple-600 px-4 py-2 rounded-full text-center text-sm font-medium hover:bg-purple-600 hover:text-white transition"
                   >
-                    Sign In
+                    {t("common.login")}
                   </Link>
                   <Link
                     to="/registration"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="w-full bg-gradient-to-r from-pink-500 to-purple-600 px-4 py-2 text-white rounded-full text-center text-sm font-semibold hover:scale-105 transition-transform"
                   >
-                    Get Started
+                    {t("common.register")}
                   </Link>
                 </>
               )}
