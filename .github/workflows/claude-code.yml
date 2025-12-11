@@ -1,0 +1,50 @@
+name: Claude Code Integration
+
+on:
+  # Trigger when a Pull Request is opened, updated, or reopened
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - master
+      - main
+
+  # Trigger when code is pushed directly to the main branches
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read # Required so Claude can read CI results on PRs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      # Run Claude Code using the official GitHub Action
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          # Uncomment to customize Claude's behavior
+          # claude_args: |
+          #   --model claude-opus-4-1-20250805
+          #   --max-turns 10
+          #   --allowedTools "Bash(npm ci),Bash(npm run build),Bash(npm test),Read,Edit"
+
+          # settings: |
+          #   {
+          #     "env": {
+          #       "NODE_ENV": "test"
+          #     }
+          #   }
