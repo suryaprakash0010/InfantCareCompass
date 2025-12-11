@@ -13,7 +13,7 @@ import upload from '../middleware/multer.js';
 import { reviewDoctor } from '../controller/user/adminDashboard.js';
 import isAdmin from '../middleware/isAdmin.js'; 
 import { create } from "domain";
-
+import getUserInfo from "../controller/user/getUserInfo.js"; 
 router.post('/signup', upload.single('document'), signUp);
 
 import {
@@ -45,6 +45,7 @@ import {
 router.post('/signin', signIn);
 router.post('/signup', signUp);
 router.post('/logout', logout);
+router.get('/user/me', authtoken, getUserInfo);
 
 // Doctor and consultation
 router.post('/consultation', authtoken, consultation);
@@ -84,6 +85,14 @@ router.get('/growth-logs/stats', authtoken, getGrowthStats);
 //Github oauth routes
 router.get('/auth/github/callback', githubCallback)
 router.get('/auth/github', githubLoginRedirect)
+
+// Admin routes
+import { getDashboardAnalytics, getAllUsers, getAllDoctors, updateUserStatus } from '../controller/user/adminDashboard.js';
+router.get('/admin/analytics', authtoken, isAdmin, getDashboardAnalytics);
+router.get('/admin/users', authtoken, isAdmin, getAllUsers);
+router.get('/admin/doctors', authtoken, isAdmin, getAllDoctors);
+router.put('/admin/users/:userId/status', authtoken, isAdmin, updateUserStatus);
+router.put('/admin/doctors/:doctorId/review', authtoken, isAdmin, reviewDoctor);
 
 export default router;
 
